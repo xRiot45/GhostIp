@@ -1,15 +1,24 @@
 #!/bin/bash
-VERSION="1.0.1"
+VERSION="1.1.0"
 
 # ====================================
 # AUTO IP & MAC ROTATION TOOL
-# (CGNAT Detection + Enhanced Warnings)
+# (CGNAT Detection + Skip Public Check Option)
 # ====================================
+
+# ARGUMENTS:
+# 1 = Stealth mode? (yes/no)
+# 2 = Maximum rotations (0 = infinite)
+# 3 = Random delay min (seconds)
+# 4 = Random delay max (seconds)
+# 5 = Extra flag (e.g., --skip-public-check)
 
 STEALTH_MODE="${1:-no}" # yes / no
 MAX_ROTATIONS="${2:-0}" # 0 = infinite
 DELAY_MIN="${3:-1}"
 DELAY_MAX="${4:-3}"
+EXTRA_FLAG="${5:-}"
+
 LOGFILE="/usr/local/bin/ip-rotation.log"
 
 # Colors
@@ -18,9 +27,16 @@ GREEN="\033[1;32m"
 YELLOW="\033[1;33m"
 NC="\033[0m"
 
+# Check skip public check flag
+SKIP_PUBLIC_CHECK=false
+if [[ "$EXTRA_FLAG" == "--skip-public-check" ]]; then
+    SKIP_PUBLIC_CHECK=true
+fi
+
 # Ensure root
 if [[ $EUID -ne 0 ]]; then
     echo "Please run the script as root!"
+    echo "Usage: sudo ./ghostIp.sh no 10 1 5 [--skip-public-check]"
     exit 1
 fi
 
@@ -85,9 +101,12 @@ while true; do
         exit 0
     fi
 
-    OLD_INFO=$(get_public_info)
-    OLD_IP=$(echo "$OLD_INFO" | awk '{print $1}')
-    OLD_LOC=$(echo "$OLD_INFO" | cut -d' ' -f2-)
+    # Skip public check if flag enabled
+    if ! $SKIP_PUBLIC_CHECK; then
+        OLD_INFO=$(get_public_info)
+        OLD_IP=$(echo "$OLD_INFO" | awk '{print $1}')
+        OLD_LOC=$(echo "$OLD_INFO" | cut -d' ' -f2-)
+    fi
 
     # Disconnect interface
     log_msg "[INFO] Disconnecting interface $INTERFACE..."
@@ -113,27 +132,30 @@ while true; do
         log_msg "[WARNING] Failed to obtain new local IP!"
     else
         if check_internet; then
-            NEW_INFO=$(get_public_info)
-            NEW_PUB_IP=$(echo "$NEW_INFO" | awk '{print $1}')
-            NEW_LOC=$(echo "$NEW_INFO" | cut -d' ' -f2-)
+            if ! $SKIP_PUBLIC_CHECK; then
+                NEW_INFO=$(get_public_info)
+                NEW_PUB_IP=$(echo "$NEW_INFO" | awk '{print $1}')
+                NEW_LOC=$(echo "$NEW_INFO" | cut -d' ' -f2-)
 
-            if [[ "$OLD_IP" != "$NEW_PUB_IP" && -n "$NEW_PUB_IP" ]]; then
-                PUB_CHANGE="${GREEN}[CHANGED]${NC}"
-                CGNAT_WARNING_COUNT=0
+                if [[ "$OLD_IP" != "$NEW_PUB_IP" && -n "$NEW_PUB_IP" ]]; then
+                    PUB_CHANGE="${GREEN}[CHANGED]${NC}"
+                    CGNAT_WARNING_COUNT=0
+                else
+                    PUB_CHANGE="${RED}[NO CHANGE]${NC}"
+                    ((CGNAT_WARNING_COUNT++))
+                fi
+
+                log_msg "[INFO] Local IP: $NEW_IP (MAC: $NEW_MAC)"
+                log_msg "[INFO] Old Public IP: $OLD_IP ($OLD_LOC)"
+                log_msg "[INFO] New Public IP: $NEW_PUB_IP $PUB_CHANGE"
+                log_msg "[INFO] Old Location: $OLD_LOC"
+                log_msg "[INFO] New Location: $NEW_LOC"
+
+                if [[ $CGNAT_WARNING_COUNT -ge $CGNAT_THRESHOLD ]]; then
+                    log_msg "[WARNING] Detected possible CGNAT: Public IP hasn't changed for $CGNAT_WARNING_COUNT rotations. Consider using VPN/TOR."
+                fi
             else
-                PUB_CHANGE="${RED}[NO CHANGE]${NC}"
-                ((CGNAT_WARNING_COUNT++))
-            fi
-
-            log_msg "[INFO] Local IP: $NEW_IP (MAC: $NEW_MAC)"
-            log_msg "[INFO] Old Public IP: $OLD_IP ($OLD_LOC)"
-            log_msg "[INFO] New Public IP: $NEW_PUB_IP $PUB_CHANGE"
-            log_msg "[INFO] Old Location: $OLD_LOC"
-            log_msg "[INFO] New Location: $NEW_LOC"
-
-            # CGNAT warning
-            if [[ $CGNAT_WARNING_COUNT -ge $CGNAT_THRESHOLD ]]; then
-                log_msg "[WARNING] Detected possible CGNAT: Public IP hasn't changed for $CGNAT_WARNING_COUNT rotations. Consider using VPN/TOR."
+                log_msg "[INFO] Local IP rotated: $NEW_IP (MAC: $NEW_MAC) - Public check skipped"
             fi
         else
             log_msg "[WARNING] Local IP: $NEW_IP but no internet connection detected!"
