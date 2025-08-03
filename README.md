@@ -21,6 +21,7 @@ GhostIP is an automated tool to rotate your IP and MAC address on Linux systems,
 ghostip/
 ├── ghostIp.sh           # Main script for IP & MAC rotation
 ├── installer.sh         # Installer, uninstaller, and updater script
+├── version.txt          # Holds the latest version number
 ├── README.md            # Documentation (this file)
 └── LICENSE              # License file (MIT recommended)
 ```
@@ -108,7 +109,7 @@ Select `2) Uninstall GhostIP` to remove all files and logs.
 Logs are stored in:
 
 ```
-/usr/local/bin/ghostIp.log
+/usr/local/bin/ip-rotation.log
 ```
 
 Color codes:
