@@ -16,6 +16,43 @@ GREEN="\033[1;32m"
 RED="\033[1;31m"
 NC="\033[0m"
 
+# Help menu
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    echo "===================================="
+    echo "        GhostIP Installer"
+    echo "===================================="
+    echo "Usage:"
+    echo "  sudo ./installer.sh"
+    echo
+    echo "Menu Options:"
+    echo "  1) Install GhostIP"
+    echo "     - Installs ghostIp.sh into $INSTALL_PATH"
+    echo "     - Makes it executable"
+    echo "     - Saves the version file"
+    echo
+    echo "  2) Uninstall GhostIP"
+    echo "     - Removes ghostIp.sh, version file, and log file"
+    echo
+    echo "  3) Update GhostIP"
+    echo "     - Checks GitHub for the latest version"
+    echo "     - Downloads and replaces the installed script"
+    echo
+    echo "  4) Exit"
+    echo "     - Quits the installer menu"
+    echo
+    echo "Example after installation:"
+    echo "  sudo ghostIp.sh no 5 2 5"
+    echo "  sudo ghostIp.sh yes 0 1 3 --skip-public-check"
+    echo
+    echo "GhostIP Flags:"
+    echo "  --skip-public-check       Skip public IP and location check"
+    echo "  --force-interface <iface> Force specific network interface"
+    echo "  --no-mac-change           Rotate IP only, keep MAC unchanged"
+    echo "  --log-to-file-only        Log to file only, suppress console output"
+    echo
+    exit 0
+fi
+
 # Ensure root privileges
 if [[ $EUID -ne 0 ]]; then
     echo -e "${RED}Please run as root!${NC}"
@@ -40,7 +77,6 @@ install_ghostip() {
     cp "$SCRIPT_NAME" "$INSTALL_PATH/$SCRIPT_NAME"
     chmod +x "$INSTALL_PATH/$SCRIPT_NAME"
 
-    # Save initial version if version.txt exists
     if [[ -f version.txt ]]; then
         cp version.txt "$LOCAL_VERSION_FILE"
     else
